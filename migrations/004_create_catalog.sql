@@ -1,0 +1,11 @@
+CREATE TABLE IF NOT EXISTS users (
+    user_id VARCHAR(100) PRIMARY KEY,
+    skills TEXT[] NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS jobs (
+    job_id VARCHAR(100) PRIMARY KEY,
+    title VARCHAR(200) NOT NULL,
+    company VARCHAR(100) NOT NULL,
+    skills TEXT[] NOT NULL
+);
