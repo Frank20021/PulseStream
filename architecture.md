@@ -24,6 +24,12 @@ Prometheus :9090 scrapes :8000/metrics, :8001/metrics, consumer :8002/
 Grafana :3001 reads Prometheus
 ```
 
+```
+Local:  Compose → FastAPI → Kafka → consumer → PostgreSQL/Redis → Celery
+Cloud:  GitHub Actions → ECR → ECS Fargate → RDS + ElastiCache + existing Kafka
+Infra:  Terraform
+```
+
 ```mermaid
 flowchart LR
     Client -->|POST /api/v1/events| API[Ingestion API]
@@ -44,6 +50,18 @@ flowchart LR
     Prom --> Analytics
     Prom --> Consumer
     Graf[Grafana] --> Prom
+```
+
+```mermaid
+flowchart LR
+    GHA[GitHub Actions] --> ECR
+    ECR --> Fargate[ECS Fargate]
+    Fargate --> RDS[(RDS PostgreSQL)]
+    Fargate --> Cache[(ElastiCache Redis)]
+    Fargate --> MK[Managed Kafka]
+    TF[Terraform] --> Fargate
+    TF --> RDS
+    TF --> Cache
 ```
 
 ## Kafka vs Celery

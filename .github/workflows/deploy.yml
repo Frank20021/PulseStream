@@ -1,0 +1,66 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+  CLUSTER: pulsestream
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt -r requirements-dev.txt
+      - run: python -m pytest tests/unit -q
+
+  deploy:
+    needs: unit-tests
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && vars.ENABLE_AWS_DEPLOY == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push images
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          SHA: ${{ github.sha }}
+        run: |
+          docker build -t "$REGISTRY/pulsestream-app:$SHA" -t "$REGISTRY/pulsestream-app:latest" .
+          docker build -t "$REGISTRY/pulsestream-dashboard:$SHA" -t "$REGISTRY/pulsestream-dashboard:latest" ./dashboard
+          docker push "$REGISTRY/pulsestream-app:$SHA"
+          docker push "$REGISTRY/pulsestream-app:latest"
+          docker push "$REGISTRY/pulsestream-dashboard:$SHA"
+          docker push "$REGISTRY/pulsestream-dashboard:latest"
+
+      - name: Deploy ECS services
+        run: |
+          STATUS=$(aws ecs describe-clusters --clusters "$CLUSTER" --query 'clusters[0].status' --output text 2>/dev/null || true)
+          if [ "$STATUS" != "ACTIVE" ]; then
+            echo "ECS cluster $CLUSTER is not active yet. Apply Terraform first."
+            exit 0
+          fi
+          for service in ingestion-api analytics-api event-consumer celery-worker celery-beat dashboard; do
+            aws ecs update-service --cluster "$CLUSTER" --service "$service" --force-new-deployment >/dev/null
+            echo "deployed $service"
+          done

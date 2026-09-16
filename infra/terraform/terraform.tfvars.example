@@ -1,0 +1,7 @@
+aws_region               = "us-east-1"
+github_repository        = "Frank20021/PulseStream"
+kafka_bootstrap_servers  = "boot-xxxxx.kafka.us-east-1.amazonaws.com:9092"
+kafka_security_protocol  = "PLAINTEXT"
+kafka_sasl_mechanism     = ""
+kafka_sasl_username      = ""
+kafka_replication_factor = 3

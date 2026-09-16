@@ -4,6 +4,7 @@ import logging
 from aiokafka import AIOKafkaProducer
 
 from shared.config import Settings
+from shared.kafka.client import kafka_client_kwargs
 from shared.schemas import ActivityEvent
 
 logger = logging.getLogger(__name__)
@@ -13,8 +14,8 @@ class EventProducer:
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
         self._producer = AIOKafkaProducer(
-            bootstrap_servers=settings.kafka_bootstrap_servers,
             acks="all",
+            **kafka_client_kwargs(settings),
         )
 
     async def start(self) -> None:

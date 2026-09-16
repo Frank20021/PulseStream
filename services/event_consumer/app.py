@@ -12,7 +12,7 @@ from shared.analytics import AnalyticsWriter
 from shared.analytics.keys import consumer_lag_key
 from shared.config import get_settings
 from shared.database.session import get_engine, init_db
-from shared.kafka import EventProducer, ensure_topics
+from shared.kafka import EventProducer, ensure_topics, kafka_client_kwargs
 from shared.logging import configure_logging
 from shared.metrics import CONSUMER_LAG, PROCESSING_LATENCY
 from shared.redis import IdempotencyStore, close_redis, get_redis
@@ -61,12 +61,12 @@ async def consume() -> None:
 
     consumer = AIOKafkaConsumer(
         settings.kafka_topic_activity,
-        bootstrap_servers=settings.kafka_bootstrap_servers,
         group_id=settings.kafka_consumer_group,
         enable_auto_commit=False,
         auto_offset_reset="earliest",
         key_deserializer=lambda key: key.decode("utf-8") if key else None,
         value_deserializer=lambda value: value.decode("utf-8"),
+        **kafka_client_kwargs(settings),
     )
     await consumer.start()
     logger.info("consumer_started", extra={"topic": settings.kafka_topic_activity})

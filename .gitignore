@@ -15,3 +15,8 @@ load_tests/results_*.csv
 load_tests/report.html
 dashboard/node_modules/
 dashboard/dist/
+infra/terraform/.terraform/
+infra/terraform/*.tfstate
+infra/terraform/*.tfstate.*
+infra/terraform/*.tfvars
+!infra/terraform/terraform.tfvars.example

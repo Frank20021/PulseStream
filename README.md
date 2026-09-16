@@ -27,6 +27,41 @@ Then open:
 
 The dashboard polls analytics every three seconds. `make generate` (or `make load`) gives it something to show.
 
+## Local vs cloud
+
+```
+Local development:
+Docker Compose
+→ FastAPI
+→ Kafka
+→ Consumer
+→ PostgreSQL / Redis
+→ Celery
+
+Cloud deployment:
+GitHub Actions
+→ ECR
+→ ECS Fargate
+→ RDS PostgreSQL
+→ ElastiCache Redis
+→ Existing managed Kafka endpoint
+
+Infrastructure:
+Terraform
+```
+
+Local is `make up`. Cloud is Terraform plus `.github/workflows/deploy.yml`. Kafka in AWS is **not** created here; pass your MSK or Confluent bootstrap into `infra/terraform/terraform.tfvars`.
+
+Apply order:
+
+1. Copy `infra/terraform/terraform.tfvars.example` to `terraform.tfvars` and set `kafka_bootstrap_servers`.
+2. `cd infra/terraform && terraform init && terraform apply`
+3. Put the `github_actions_role_arn` output in the GitHub secret `AWS_ROLE_ARN`.
+4. Set the repository variable `ENABLE_AWS_DEPLOY` to `true`.
+5. Push to `main`. Actions builds images, pushes them to ECR, and force-deploys the Fargate services.
+
+The ALB DNS from `terraform output alb_dns_name` is the public entry: dashboard at `/`, `POST /api/v1/events` on the ingestion service, other `/api/*` on analytics. This stack costs money (RDS, ElastiCache, Fargate, ALB). Do not apply it unless you have an AWS account and a Kafka cluster you can point at.
+
 ## Ports
 
 | Port | Service |
@@ -129,7 +164,7 @@ make load
 
 | Suite | Count | What it covers |
 | --- | --- | --- |
-| Unit | 22 | Schema, unsupported types, retry 1s/2s/4s, job CTR, recommendation scoring |
+| Unit | 24 | Schema, retry, CTR, recommendation scoring, Kafka client |
 | Integration | 3 | FastAPI → Kafka → PostgreSQL → Redis; duplicate `event_id`; Celery hourly upsert |
 | Failure | 5 | Dead-letter for bad JSON, no double-count, consumer restart, PostgreSQL outage, Redis outage |
 
@@ -156,11 +191,11 @@ Then the technical challenge:
 
 ## Resume
 
-**PulseStream — Real-Time Activity Analytics Platform** | Python, FastAPI, Kafka, PostgreSQL, Redis, Celery, Docker
+**PulseStream** | GitHub | FastAPI, Kafka, Celery, PostgreSQL, Redis, Docker, Python
 
-- Built a Kafka-based event-processing platform ingesting profile, feed and job interactions at **555 events/sec** with **12-ms P95** ingestion latency (9,830 requests, 0 failures on a 20-second Locust run).
-- Implemented idempotent consumers, database constraints, exponential retries and dead-letter recovery, preventing duplicate processing across **5 failure-injection tests**.
-- Developed Redis-backed rolling analytics, Celery aggregation jobs, and a weighted job recommender (skills, clicks/saves, similar users); monitored throughput, latency and consumer lag with Prometheus and Grafana.
+- Designed a Kafka-based activity-analytics service ingesting profile, feed, and job events at 555 events/s and computing rolling engagement metrics with 12-ms P95 ingest latency
+- Containerized FastAPI, Celery, PostgreSQL, and Redis services and validated retry and idempotency handling across 5 failure-injection tests with zero duplicate records
+- Defined AWS deployment with Terraform (ECS Fargate, RDS, ElastiCache) and GitHub Actions → ECR, using an existing managed Kafka endpoint
 
 ## Commands
 
